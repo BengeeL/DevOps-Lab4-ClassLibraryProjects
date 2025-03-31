@@ -1,0 +1,63 @@
+variables:
+- name: BuildParameters.solution
+  value: '**\*.sln'
+name: $(date:yyyyMMdd)$(rev:.r)
+resources:
+  repositories:
+  - repository: self
+    type: git
+    ref: master
+jobs:
+- job: Job_1
+  displayName: Agent job 1
+  pool:
+    vmImage: windows-latest
+  steps:
+  - checkout: self
+    clean: true
+    fetchTags: false
+  - task: NuGetToolInstaller@0
+    displayName: Use NuGet 6
+    inputs:
+      versionSpec: 6
+      checkLatest: true
+  - task: NuGetCommand@2
+    displayName: NuGet restore
+    inputs:
+      solution: $(BuildParameters.solution)
+  - task: VSBuild@1
+    displayName: Build solution **\*.sln
+    inputs:
+      solution: $(BuildParameters.solution)
+      platform: $(BuildPlatform)
+      configuration: $(BuildConfiguration)
+  - task: VSTest@2
+    displayName: VsTest - testAssemblies
+    inputs:
+      testAssemblyVer2: >-
+        **\$(BuildConfiguration)\*test*.dll
+
+        !**\obj\**
+      platform: $(BuildPlatform)
+      configuration: $(BuildConfiguration)
+  - task: PublishSymbols@2
+    displayName: Publish symbols path
+    continueOnError: True
+    inputs:
+      SearchPattern: '**\bin\**\*.pdb'
+      PublishSymbols: false
+      SymbolServerType: TeamServices
+  - task: CopyFiles@2
+    displayName: 'Copy Files to: $(build.artifactstagingdirectory)'
+    condition: succeededOrFailed()
+    inputs:
+      SourceFolder: $(system.defaultworkingdirectory)
+      Contents: '**\bin\$(BuildConfiguration)\**'
+      TargetFolder: $(build.artifactstagingdirectory)
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Artifact: drop'
+    condition: succeededOrFailed()
+    inputs:
+      PathtoPublish: $(build.artifactstagingdirectory)
+      TargetPath: '\\my\share\$(Build.DefinitionName)\$(Build.BuildNumber)'
+...
