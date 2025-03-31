@@ -2,20 +2,21 @@ variables:
 - name: BuildParameters.solution
   value: '**\*.sln'
 name: $(date:yyyyMMdd)$(rev:.r)
-resources:
-  repositories:
-  - repository: self
-    type: git
-    ref: master
 jobs:
 - job: Job_1
   displayName: Agent job 1
   pool:
-    vmImage: windows-latest
+    name: Windows
   steps:
   - checkout: self
     clean: true
     fetchTags: false
+  - task: UseDotNet@2
+    displayName: 'Use .NET Core sdk '
+  - task: DotNetCoreCLI@2
+    displayName: dotnet restore
+    inputs:
+      command: restore
   - task: NuGetToolInstaller@0
     displayName: Use NuGet 6
     inputs:
@@ -54,6 +55,16 @@ jobs:
       SourceFolder: $(system.defaultworkingdirectory)
       Contents: '**\bin\$(BuildConfiguration)\**'
       TargetFolder: $(build.artifactstagingdirectory)
+  - task: DotNetCoreCLI@2
+    displayName: dotnet pack
+    inputs:
+      command: pack
+      versioningScheme: byPrereleaseNumber
+  - task: DotNetCoreCLI@2
+    displayName: dotnet push
+    inputs:
+      command: push
+      feedPublish: 405a08ff-e524-4a19-98c6-43d5c1d3560b/9b7c9ef3-4de3-47b4-8d4e-126eb5da5b2f
   - task: PublishBuildArtifacts@1
     displayName: 'Publish Artifact: drop'
     condition: succeededOrFailed()
